@@ -1,0 +1,62 @@
+---
+
+# Determine if a path exists and is a directory.
+- name: Determine if a path exists and is a directory
+  stat:
+    path: "{{ item.dest | dirname }}"
+  register: jjb_path
+
+- name: Preparing to run JJB
+  debug:
+    msg: >
+      JJB directory  {{ item.dest | dirname }} 
+
+# Delete destination jjb directory if force enabled 
+- name: Delete the destination jjb directory
+  file:
+    path: "{{ item.dest | dirname }}"
+    state: absent
+  when: jjb_path.stat.isdir and jjb_projects_force
+
+# Create destination jjb directory if it does not exist or force delete enabled
+- name: Create the destination jjb directory
+  file:
+    path: "{{ item.dest | dirname }}"
+    state: directory
+    mode: 0755
+  when: jjb_projects_force or not jjb_path.stat.isdir
+
+# Echo clone details
+- name: Cloning remote repo
+  debug:
+    msg: Git cloning {{ item.src }} to directory {{ item.dest }} {{ item.config }} 
+
+# Clone remote repo containing jjb file
+- name: Git clone repo and use refspec to fetch all pull requests
+  git:
+    repo: "{{ item.src }}"
+    dest: "{{ item.dest }}/{{ item.config }}"
+    accept_hostkey: "{{ jjb_git_accept_hostkey }}"
+    ssh_opts: "{{ jjb_git_ssh_opts }} "
+    refspec: "{{ jjb_git_refspec }}"
+
+# Echo jjb run details
+- name: Preparing to run JJB
+  debug:
+    msg: >
+      Running JJB... jenkins-jobs --conf {{ jjb_config_path }} 
+      --user {{ jjb_config_jenkins_user | default('admin') }} 
+      --password {{ jjb_config_jenkins_password | default('admin') }} 
+      update {{ item.config }}
+
+# Execute jenkins job builder file to create jenkins jobs
+- name: Run Jenkins Job Builder project
+  command: > 
+    jenkins-jobs 
+    --conf "{{ jjb_config_path }}" 
+    --user "{{ jjb_config_jenkins_user | default('admin') }}"
+    --password "{{ jjb_config_jenkins_password | default('admin') }}"
+    update "{{ item.config }}"
+  args:
+    chdir: "{{ item.dest }}"
+

@@ -1,0 +1,16 @@
+---
+
+galaxy_info:
+  author: Dennis Tait, Jiri Tyr
+  description: A role that installs and runs Jenkins Job Builder.
+  license: MIT
+  min_ansible_version: 2.2
+  platforms:
+    - name: EL
+      versions:
+        - 6
+        - 7
+  categories:
+    - web
+dependencies:
+  - config_encoder_filters

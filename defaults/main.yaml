@@ -1,0 +1,125 @@
+---
+
+# Whether to install EPEL YUM repo
+jjb_epel_install: "{{ yumrepo_epel_install | default(true) }}"
+
+# EPEL YUM repo URL
+jjb_epel_yumrepo_url: "{{ yumrepo_epel_url | default('https://dl.fedoraproject.org/pub/epel/' + ansible_distribution_major_version + '/' + ansible_userspace_architecture + '/') }}"
+
+# EPEL YUM repo GPG key
+jjb_epel_yumrepo_gpgkey: "{{ yumrepo_epel_gpgkey | default('https://dl.fedoraproject.org/pub/epel/RPM-GPG-KEY-EPEL-$releasever') }}"
+
+# Additional EPEL params
+jjb_epel_yumrepo_params: "{{ yumrepo_epel_params | default({}) }}"
+
+
+# Default dependencies
+jjb_pkgs__default:
+  - python-setuptools
+  - python-devel
+  - libyaml-devel
+  - git
+  - curl
+  - python-pip
+  - python-yaml
+
+# Custom dependencies
+jjb_pkgs__custom: []
+
+# Final list of dependencies
+jjb_pkgs: "{{
+  jjb_pkgs__default +
+  jjb_pkgs__custom }}"
+
+
+# Default Python PIP dependencies
+jjb_pip_pkgs__default:
+  - jenkins-job-builder
+
+# Custom Python PIP dependencies
+jjb_pip_pkgs__custom: []
+
+# Final list of Python PIP dependencies
+jjb_pip_pkgs: "{{
+  jjb_pip_pkgs__default +
+  jjb_pip_pkgs__custom }}"
+
+
+# PyPI source
+jjb_pypi_host: pypi.python.org
+jjb_pypi_url: https://"{{ jjb_pypi_host }}/simple/"
+
+
+# Path to the JJB config
+jjb_config_path: /etc/jenkins_jobs.ini
+
+jjb_git_accept_hostkey: yes
+jjb_git_ssh_opts: -o StrictHostKeyChecking=no
+jjb_git_refspec: +refs/pull/*:refs/heads/*
+
+# Default option values of the default job_builder section
+jjb_config_job_builder_ignore_cache: yes
+jjb_config_job_builder_keep_descriptions: no
+jjb_config_job_builder_include_path: .:scripts:~/git/
+jjb_config_job_builder_recursive: no
+jjb_config_job_builder_exclude: .*:manual:./development
+jjb_config_job_builder_allow_duplicates: no
+
+# Default options of the job_builder section
+jjb_config_job_builder__default:
+  ignore_cache: "{{ jjb_config_job_builder_ignore_cache }}"
+  keep_descriptions: "{{ jjb_config_job_builder_keep_descriptions }}"
+  include_path: "{{ jjb_config_job_builder_include_path }}"
+  recursive: "{{ jjb_config_job_builder_recursive }}"
+  exclude: "{{ jjb_config_job_builder_exclude }}"
+  allow_duplicates: "{{ jjb_config_job_builder_allow_duplicates }}"
+
+# Cutom options of the job_builder section
+jjb_config_job_builder__custom: {}
+
+# Final job_builder section
+jjb_config_job_builder: "{{
+  jjb_config_job_builder__default.update(jjb_config_job_builder__custom) }}{{
+  jjb_config_job_builder__default }}"
+
+
+# Default option values of the default jenkins section
+jjb_config_jenkins_user: admin
+jjb_config_jenkins_password: admin
+jjb_config_jenkins_url: http://localhost:8080
+jjb_config_jenkins_query_plugins_info: no
+
+# Default options of the jenkins section
+jjb_config_jenkins__default:
+  user: "{{ jjb_config_jenkins_user }}"
+  password: "{{ jjb_config_jenkins_password }}"
+  url: "{{ jjb_config_jenkins_url }}"
+  query_plugins_info: "{{ jjb_config_jenkins_query_plugins_info }}"
+
+# Custom options of the jenkins section
+jjb_config_jenkins__custom: {}
+
+# Final jenkins section
+jjb_config_jenkins: "{{
+  jjb_config_jenkins__default.update(jjb_config_jenkins__custom) }}{{
+  jjb_config_jenkins__default }}"
+
+
+# Final config
+jjb_config:
+  jenkins: "{{ jjb_config_jenkins }}"
+  job_builder: "{{ jjb_config_job_builder }}"
+
+# Jenkins job builder project attributes
+jjb_projects_dest: /etc/jjb/jenkins-jobs
+jjb_projects_config: job-template.yml
+jjb_projects_force: yes
+jjb_projects_run: yes
+
+# List of jenkins job builder projects to run
+jjb_projects:
+  - src: https://github.com/taitd/jenkins-jobs.git
+    dest: "{{ jjb_projects_dest }}"
+    config: "{{ jjb_projects_config }}"
+    force: "{{ jjb_projects_force }}"
+    run:  "{{ jjb_projects_run }}"

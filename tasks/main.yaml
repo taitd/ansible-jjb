@@ -1,0 +1,54 @@
+---
+
+# Test distribution is valid 
+- name: Test distribution
+  assert:
+    that: >
+      ansible_os_family == 'RedHat'
+
+# Add epel YUM repo
+- name: Add EPEL YUM repo
+  yum_repository:
+    name: epel
+    description: EPEL YUM repo
+    baseurl: "{{ jjb_epel_yumrepo_url }}"
+    gpgkey: "{{ jjb_epel_yumrepo_gpgkey }}"
+    params: "{{ jjb_epel_yumrepo_params }}"
+  when: jjb_epel_install
+  tags:
+    - jjb_pkg
+
+# Install jjb package dependancies
+- name: Install dependencies
+  package:
+    name: "{{ item }}"
+  with_items: "{{ jjb_pkgs }}"
+  tags:
+    - jjb_pkg
+
+# Install pypi pip dependancies
+- name: Install Python PIP dependencies
+  pip:
+    name: "{{ item }}"
+  with_items: "{{ jjb_pip_pkgs }}"
+  tags:
+    - jjb_pkg
+
+# Create jenkins job ini configuration file
+- name: Create jenkins_jobs.ini config file
+  template:
+    src: jjb_cfg.j2
+    dest: "{{ jjb_config_path }}"
+  when: >
+    jjb_config | length > 0
+  tags:
+    - jjb_config
+
+# Iterate over jenkins job builder projects to create defined jenkins jobs  
+- include: project.yaml
+  when: >
+    'run' not in item or
+    item.run == true
+  with_items: "{{ jjb_projects }}"
+  tags:
+    - jjb_project
