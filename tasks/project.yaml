@@ -1,62 +1,63 @@
 ---
 
-# Determine if a path exists and is a directory.
-- name: Determine if a path exists and is a directory
-  stat:
-    path: "{{ item.dest | dirname }}"
-  register: jjb_path
-
-- name: Preparing to run JJB
-  debug:
-    msg: >
-      JJB directory  {{ item.dest | dirname }} 
-
-# Delete destination jjb directory if force enabled 
-- name: Delete the destination jjb directory
+- name: Delete the destination directory
   file:
-    path: "{{ item.dest | dirname }}"
+    path: "{{ item.dest }}"
     state: absent
-  when: jjb_path.stat.isdir and jjb_projects_force
+  when: >
+    'force' in item and
+    item.force == true
 
-# Create destination jjb directory if it does not exist or force delete enabled
-- name: Create the destination jjb directory
+- name: Create the destination directory
   file:
-    path: "{{ item.dest | dirname }}"
+    path: "{{ item.dest }}"
+    owner: "{{ item.owner | default(omit) }}"
+    group: "{{ item.group | default(omit) }}"
+    mode: "{{ item.mode | default(omit) }}"
     state: directory
-    mode: 0755
-  when: jjb_projects_force or not jjb_path.stat.isdir
 
-# Echo clone details
-- name: Cloning remote repo
-  debug:
-    msg: Git cloning {{ item.src }} to directory {{ item.dest }} {{ item.config }} 
-
-# Clone remote repo containing jjb file
-- name: Git clone repo and use refspec to fetch all pull requests
+- name: Clone or update the repo
   git:
     repo: "{{ item.src }}"
-    dest: "{{ item.dest }}/{{ item.config }}"
-    accept_hostkey: "{{ jjb_git_accept_hostkey }}"
-    ssh_opts: "{{ jjb_git_ssh_opts }} "
-    refspec: "{{ jjb_git_refspec }}"
+    dest: "{{ item.dest }}"
+    accept_hostkey: yes
+    update: "{{ item.pull | default(true) }}"
+    ssh_opts: "{{ item.ssh_opts | default(omit) }}"
+    refspec: "{{ item.refspec | default(omit) }}"
 
-# Echo jjb run details
-- name: Preparing to run JJB
-  debug:
-    msg: >
-      Running JJB... jenkins-jobs --conf {{ jjb_config_path }} 
-      --user {{ jjb_config_jenkins_user | default('admin') }} 
-      --password {{ jjb_config_jenkins_password | default('admin') }} 
-      update {{ item.config }}
+- name: Update Jenkins jobs
+  shell: >
+    jenkins-jobs
+    --conf {{ jjb_config_path }}
+    --user {{ jjb_config_jenkins_user }}
+    --password "{{ jjb_config_jenkins_password }}"
+    update {{ item.dest }}/{{ item.file }}
+  when: >
+    (
+      'run' not in item or
+      item.run == true
+    ) and (
+      'state' not in item or
+      item.state != 'absent'
+    )
 
-# Execute jenkins job builder file to create jenkins jobs
-- name: Run Jenkins Job Builder project
-  command: > 
-    jenkins-jobs 
-    --conf "{{ jjb_config_path }}" 
-    --user "{{ jjb_config_jenkins_user | default('admin') }}"
-    --password "{{ jjb_config_jenkins_password | default('admin') }}"
-    update "{{ item.config }}"
-  args:
-    chdir: "{{ item.dest }}"
-
+- name: Delete Jenkins jobs
+  shell: >
+    jenkins-jobs
+    --conf {{ jjb_config_path }}
+    --user {{ jjb_config_jenkins_user }}
+    --password "{{ jjb_config_jenkins_password }}"
+    test {{ item.dest }}/{{ item.file }} 2>&1 1>/dev/null |
+    grep -oP '(?<=INFO:jenkins_jobs.builder:Job name:  ).*' |
+    xargs jenkins-jobs
+    --conf {{ jjb_config_path }}
+    --user {{ jjb_config_jenkins_user }}
+    --password "{{ jjb_config_jenkins_password }}"
+    delete
+  when: >
+    (
+      'run' not in item or
+      item.run == true
+    ) and
+    'state' in item and
+    item.state == 'absent'
